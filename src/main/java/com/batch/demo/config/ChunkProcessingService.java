@@ -67,19 +67,19 @@ public class ChunkProcessingService {
                 }
             } else if (!CarrierStorage.isInsertCompleted()) {
                 int insertedRows = insertRecords();
-                logger.info("Inserted {} records into agdh.", insertedRows);
+                logger.info("Inserted {} records into table1_history.", insertedRows);
                 CarrierStorage.setInsertCompleted(true);
-            } else if (!CarrierStorage.isGelUpdateCompleted()) {
-                int updatedRowsInGel = updateGelRecords(carrier);
-                if (updatedRowsInGel == 0) {
-                    logger.info("No records to process for gel update. Moving to insert into gelh.");
-                    CarrierStorage.setGelUpdateCompleted(true);
+            } else if (!CarrierStorage.isTable2UpdateCompleted()) {
+                int updatedRowsInTable2 = updateTable2Records(carrier);
+                if (updatedRowsInTable2 == 0) {
+                    logger.info("No records to process for table2 update. Moving to insert into table2_history.");
+                    CarrierStorage.setTable2UpdateCompleted(true);
                 } else {
-                    logger.info("Processed {} records in the gel update step.", updatedRowsInGel);
+                    logger.info("Processed {} records in the table2 update step.", updatedRowsInTable2);
                 }
             } else {
-                int insertedRowsInGelh = insertIntoGelh();
-                logger.info("Inserted {} records into gelh.", insertedRowsInGelh);
+                int insertedRowsInTable2History = insertIntoTable2History();
+                logger.info("Inserted {} records into table2_history.", insertedRowsInTable2History);
                 stopProcessing(); // Stop processing after completing all tasks
             }
         } catch (Exception e) {
@@ -97,30 +97,30 @@ public class ChunkProcessingService {
     }
 
     private int updateRecords(String carrier) {
-        String updateQuery = "UPDATE agd SET status ='I', programname='sww' WHERE carrier = ? AND  status!='I' AND groupID IN (SELECT groupID FROM gel WHERE status='F' AND carrier = ?) LIMIT " + CHUNK_SIZE;
+        String updateQuery = "UPDATE table1 SET status ='I', programname='sww' WHERE carrier = ? AND groupID IN (SELECT groupID FROM table1 WHERE status='F' AND carrier = ?) LIMIT " + CHUNK_SIZE;
         int rows = jdbcTemplate.update(updateQuery, carrier, carrier);
         logger.debug("Updated {} records in database for carrier: {}", rows, carrier);
         return rows;
     }
 
     private int insertRecords() {
-        String insertQuery = "INSERT INTO agdh (SELECT * FROM agd WHERE programname='sww')";
+        String insertQuery = "INSERT INTO table1_history (SELECT * FROM table1 WHERE programname='sww')";
         int rows = jdbcTemplate.update(insertQuery);
-        logger.debug("Inserted {} records into agdh.", rows);
+        logger.debug("Inserted {} records into table1_history.", rows);
         return rows;
     }
 
-    private int updateGelRecords(String carrier) {
-        String updateQuery = "UPDATE gel SET status ='I', programname='sww' WHERE carrier = ? AND  status!='I' AND groupID IN (SELECT groupID FROM agd WHERE status='T' AND carrier = ?) LIMIT " + CHUNK_SIZE;
+    private int updateTable2Records(String carrier) {
+        String updateQuery = "UPDATE table2 SET status ='I', programname='sww' WHERE carrier = ? AND groupID IN (SELECT groupID FROM table1 WHERE status='T' AND carrier = ?) LIMIT " + CHUNK_SIZE;
         int rows = jdbcTemplate.update(updateQuery, carrier, carrier);
-        logger.debug("Updated {} records in gel for carrier: {}", rows, carrier);
+        logger.debug("Updated {} records in table2 for carrier: {}", rows, carrier);
         return rows;
     }
 
-    private int insertIntoGelh() {
-        String insertQuery = "INSERT INTO gelh (SELECT * FROM gel WHERE programname='sww')";
+    private int insertIntoTable2History() {
+        String insertQuery = "INSERT INTO table2_history (SELECT * FROM table1 WHERE programname='sww')";
         int rows = jdbcTemplate.update(insertQuery);
-        logger.debug("Inserted {} records into gelh.", rows);
+        logger.debug("Inserted {} records into table2_history.", rows);
         return rows;
     }
 }

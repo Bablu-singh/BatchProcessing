@@ -5,7 +5,7 @@ public class CarrierStorage {
     private static boolean isRunning = false;
     private static boolean updateCompleted = false;
     private static boolean insertCompleted = false;
-    private static boolean gelUpdateCompleted = false;
+    private static boolean table2UpdateCompleted = false;
 
     public static synchronized String getCarrier() {
         return carrier;
@@ -43,12 +43,12 @@ public class CarrierStorage {
         CarrierStorage.insertCompleted = insertCompleted;
     }
 
-    public static synchronized boolean isGelUpdateCompleted() {
-        return gelUpdateCompleted;
+    public static synchronized boolean isTable2UpdateCompleted() {
+        return table2UpdateCompleted;
     }
 
-    public static synchronized void setGelUpdateCompleted(boolean gelUpdateCompleted) {
-        CarrierStorage.gelUpdateCompleted = gelUpdateCompleted;
+    public static synchronized void setTable2UpdateCompleted(boolean table2UpdateCompleted) {
+        CarrierStorage.table2UpdateCompleted = table2UpdateCompleted;
     }
 
     public static synchronized void reset() {
@@ -56,6 +56,6 @@ public class CarrierStorage {
         isRunning = false;
         updateCompleted = false;
         insertCompleted = false;
-        gelUpdateCompleted = false;
+        table2UpdateCompleted = false;
     }
 }
