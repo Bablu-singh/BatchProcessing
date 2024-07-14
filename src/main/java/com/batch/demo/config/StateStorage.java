@@ -1,6 +1,6 @@
 package com.batch.demo.config;
 
-public class CarrierStorage {
+public class StateStorage {
     private static String carrier;
     private static boolean isRunning = false;
     private static boolean updateCompleted = false;
@@ -12,11 +12,11 @@ public class CarrierStorage {
     }
 
     public static synchronized void setCarrier(String carrier) {
-        CarrierStorage.carrier = carrier;
+        StateStorage.carrier = carrier;
     }
 
     public static synchronized void clearCarrier() {
-        CarrierStorage.carrier = null;
+        StateStorage.carrier = null;
     }
 
     public static synchronized boolean isRunning() {
@@ -32,7 +32,7 @@ public class CarrierStorage {
     }
 
     public static synchronized void setUpdateCompleted(boolean updateCompleted) {
-        CarrierStorage.updateCompleted = updateCompleted;
+        StateStorage.updateCompleted = updateCompleted;
     }
 
     public static synchronized boolean isInsertCompleted() {
@@ -40,7 +40,7 @@ public class CarrierStorage {
     }
 
     public static synchronized void setInsertCompleted(boolean insertCompleted) {
-        CarrierStorage.insertCompleted = insertCompleted;
+        StateStorage.insertCompleted = insertCompleted;
     }
 
     public static synchronized boolean isTable2UpdateCompleted() {
@@ -48,7 +48,7 @@ public class CarrierStorage {
     }
 
     public static synchronized void setTable2UpdateCompleted(boolean table2UpdateCompleted) {
-        CarrierStorage.table2UpdateCompleted = table2UpdateCompleted;
+        StateStorage.table2UpdateCompleted = table2UpdateCompleted;
     }
 
     public static synchronized void reset() {

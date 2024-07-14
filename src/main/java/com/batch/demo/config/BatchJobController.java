@@ -1,5 +1,7 @@
 package com.batch.demo.config;
 
+import com.batch.demo.config.ChunkProcessingService;
+import com.batch.demo.config.StateStorage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,13 +19,13 @@ public class BatchJobController {
 
     @GetMapping("/start")
     public ResponseEntity<String> startJob(@RequestParam String carrier) {
-        if (CarrierStorage.isRunning()) {
+        if (StateStorage.isRunning()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Job is already running.");
         }
 
         try {
-            CarrierStorage.reset(); // Reset all states
-            CarrierStorage.setCarrier(carrier); // Store the carrier value
+            StateStorage.reset();
+            StateStorage.setCarrier(carrier);
             chunkProcessingService.startProcessing();
             return ResponseEntity.ok("Job started successfully");
         } catch (Exception e) {

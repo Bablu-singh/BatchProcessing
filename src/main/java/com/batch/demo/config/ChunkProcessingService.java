@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
@@ -17,76 +16,85 @@ public class ChunkProcessingService {
     private static final Logger logger = LoggerFactory.getLogger(ChunkProcessingService.class);
     private static final int CHUNK_SIZE = 1000;
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private final JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private ThreadPoolTaskScheduler taskScheduler;
+    private final ThreadPoolTaskScheduler taskScheduler;
 
     private ScheduledFuture<?> scheduledFuture;
 
+    public ChunkProcessingService(JdbcTemplate jdbcTemplate, ThreadPoolTaskScheduler taskScheduler) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.taskScheduler = taskScheduler;
+    }
+
     public void startProcessing() {
         if (scheduledFuture == null || scheduledFuture.isCancelled()) {
-            scheduledFuture = taskScheduler.schedule(this::processChunk, new CronTrigger("0 * * * * *"));
+            scheduledFuture = taskScheduler.schedule(this::processChunk, new CronTrigger("0 * * * * ?"));
+            logger.info("Scheduled task started.");
+        } else {
+            logger.info("Scheduled task is already running.");
         }
+        StateStorage.setRunning(true);
     }
 
     public void stopProcessing() {
         if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
+            boolean cancelResult = scheduledFuture.cancel(true);
+            logger.info("Scheduled task cancelled: {}", cancelResult);
+        } else {
+            logger.info("No scheduled task to cancel.");
         }
-        CarrierStorage.reset();
-        logger.info("Processing stopped.");
+        StateStorage.reset();
+        logger.info("State storage reset. Processing stopped.");
     }
 
-    @Scheduled(cron = "0 * * * * ?")  // This schedules the job to run at the top of every minute
     public void processChunk() {
-        if (CarrierStorage.isRunning()) {
-            logger.info("Previous chunk is still being processed. Skipping this run.");
+        logger.info("processChunk method called.");
+
+        if (!StateStorage.isRunning()) {
+            logger.info("No job is running. Exiting processChunk.");
             return;
         }
 
-        String carrier = CarrierStorage.getCarrier();
+        String carrier = StateStorage.getCarrier();
         if (carrier == null) {
             logger.warn("Carrier is not set. Skipping processing.");
-            stopProcessing();  // Stop the scheduler if carrier is not set
+            stopProcessing();
             return;
         }
 
-        CarrierStorage.setRunning(true);
         long startTime = System.currentTimeMillis();
 
         try {
-            if (!CarrierStorage.isUpdateCompleted()) {
+            if (!StateStorage.isUpdateCompleted()) {
                 int updatedRows = updateRecords(carrier);
                 if (updatedRows == 0) {
                     logger.info("No records to process for update. Moving to insert.");
-                    CarrierStorage.setUpdateCompleted(true);
+                    StateStorage.setUpdateCompleted(true);
                 } else {
                     logger.info("Processed {} records in the update step.", updatedRows);
                 }
-            } else if (!CarrierStorage.isInsertCompleted()) {
+            } else if (!StateStorage.isInsertCompleted()) {
                 int insertedRows = insertRecords();
                 logger.info("Inserted {} records into table1_history.", insertedRows);
-                CarrierStorage.setInsertCompleted(true);
-            } else if (!CarrierStorage.isTable2UpdateCompleted()) {
+                StateStorage.setInsertCompleted(true);
+            } else if (!StateStorage.isTable2UpdateCompleted()) {
                 int updatedRowsInTable2 = updateTable2Records(carrier);
                 if (updatedRowsInTable2 == 0) {
                     logger.info("No records to process for table2 update. Moving to insert into table2_history.");
-                    CarrierStorage.setTable2UpdateCompleted(true);
+                    StateStorage.setTable2UpdateCompleted(true);
                 } else {
                     logger.info("Processed {} records in the table2 update step.", updatedRowsInTable2);
                 }
             } else {
                 int insertedRowsInTable2History = insertIntoTable2History();
                 logger.info("Inserted {} records into table2_history.", insertedRowsInTable2History);
-                stopProcessing(); // Stop processing after completing all tasks
+                stopProcessing();
             }
         } catch (Exception e) {
             logger.error("Error occurred during processing", e);
-            stopProcessing(); // Stop processing on error
+            stopProcessing();
         } finally {
-            CarrierStorage.setRunning(false);
             long duration = System.currentTimeMillis() - startTime;
             if (duration > 60000) {
                 logger.info("Chunk processing took longer than a minute. Skipping next scheduled run.");
@@ -97,28 +105,28 @@ public class ChunkProcessingService {
     }
 
     private int updateRecords(String carrier) {
-        String updateQuery = "UPDATE table1 SET status ='I', programname='sww' WHERE carrier = ? AND groupID IN (SELECT groupID FROM table2 WHERE status='F' AND carrier = ?) LIMIT " + CHUNK_SIZE;
+        String updateQuery = "UPDATE table1 SET status ='I', programname='sww' WHERE carrier = ? AND status!='I' AND groupID IN (SELECT groupID FROM table2 WHERE status='F' AND carrier = ?) LIMIT " + CHUNK_SIZE;
         int rows = jdbcTemplate.update(updateQuery, carrier, carrier);
         logger.debug("Updated {} records in database for carrier: {}", rows, carrier);
         return rows;
     }
 
     private int insertRecords() {
-        String insertQuery = "INSERT INTO table1_history (SELECT * FROM table1 WHERE programname='sww')";
+        String insertQuery = "INSERT INTO table1history (SELECT * FROM table1 WHERE programname='sww')";
         int rows = jdbcTemplate.update(insertQuery);
         logger.debug("Inserted {} records into table1_history.", rows);
         return rows;
     }
 
     private int updateTable2Records(String carrier) {
-        String updateQuery = "UPDATE table2 SET status ='I', programname='sww' WHERE carrier = ? AND groupID IN (SELECT groupID FROM table1 WHERE status='T' AND carrier = ?) LIMIT " + CHUNK_SIZE;
+        String updateQuery = "UPDATE table2 SET status ='I', programname='sww' WHERE carrier = ? AND status!='I' AND groupID IN (SELECT groupID FROM table1 WHERE status='T' AND carrier = ?) LIMIT " + CHUNK_SIZE;
         int rows = jdbcTemplate.update(updateQuery, carrier, carrier);
         logger.debug("Updated {} records in table2 for carrier: {}", rows, carrier);
         return rows;
     }
 
     private int insertIntoTable2History() {
-        String insertQuery = "INSERT INTO table2_history (SELECT * FROM table2 WHERE programname='sww')";
+        String insertQuery = "INSERT INTO table2history (SELECT * FROM table2 WHERE programname='sww')";
         int rows = jdbcTemplate.update(insertQuery);
         logger.debug("Inserted {} records into table2_history.", rows);
         return rows;
