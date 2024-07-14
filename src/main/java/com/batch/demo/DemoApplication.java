@@ -16,7 +16,7 @@ public class DemoApplication {
     }
 
 
-    @Bean
+    @Bean(name = "taskScheduler1")
     public ThreadPoolTaskScheduler taskScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(1); // Single thread pool to ensure tasks don't overlap
