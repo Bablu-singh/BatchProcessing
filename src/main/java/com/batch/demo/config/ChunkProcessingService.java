@@ -97,7 +97,7 @@ public class ChunkProcessingService {
     }
 
     private int updateRecords(String carrier) {
-        String updateQuery = "UPDATE table1 SET status ='I', programname='sww' WHERE carrier = ? AND groupID IN (SELECT groupID FROM table1 WHERE status='F' AND carrier = ?) LIMIT " + CHUNK_SIZE;
+        String updateQuery = "UPDATE table1 SET status ='I', programname='sww' WHERE carrier = ? AND groupID IN (SELECT groupID FROM table2 WHERE status='F' AND carrier = ?) LIMIT " + CHUNK_SIZE;
         int rows = jdbcTemplate.update(updateQuery, carrier, carrier);
         logger.debug("Updated {} records in database for carrier: {}", rows, carrier);
         return rows;
@@ -118,7 +118,7 @@ public class ChunkProcessingService {
     }
 
     private int insertIntoTable2History() {
-        String insertQuery = "INSERT INTO table2_history (SELECT * FROM table1 WHERE programname='sww')";
+        String insertQuery = "INSERT INTO table2_history (SELECT * FROM table2 WHERE programname='sww')";
         int rows = jdbcTemplate.update(insertQuery);
         logger.debug("Inserted {} records into table2_history.", rows);
         return rows;
